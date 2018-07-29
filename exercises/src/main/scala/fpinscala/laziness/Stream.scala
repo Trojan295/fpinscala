@@ -17,20 +17,57 @@ trait Stream[+A] {
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
   }
-  def take(n: Int): Stream[A] = ???
 
-  def drop(n: Int): Stream[A] = ???
+  def toList: List[A] = this match {
+    case Empty => Nil
+    case Cons(h, t) => h() :: t().toList
+  }
 
-  def takeWhile(p: A => Boolean): Stream[A] = ???
+  def take(n: Int): Stream[A] = this match {
+    case Empty => Empty
+    case Cons(h, t) =>
+      if (n==0) Empty
+      else Cons(h, () => t().take(n-1))
+  }
 
-  def forAll(p: A => Boolean): Boolean = ???
+  def drop(n: Int): Stream[A] = this match {
+    case Empty => Empty
+    case Cons(h, t) =>
+      if (n==0) Cons(h, t)
+      else t().drop(n-1)
+  }
 
-  def headOption: Option[A] = ???
+  def takeWhile(p: A => Boolean): Stream[A] = 
+    foldRight( Empty: Stream[A] )( (a, b) => {
+      println(s"Folding $a")
+      if (p(a)) Cons(() => a, () => b)
+      else Empty
+    } )
+
+  def forAll(p: A => Boolean): Boolean = {
+    foldRight(true)( (a, b) => p(a) && b )
+  }
+
+  def headOption: Option[A] = foldRight(None: Option[A])( (a,_) => Some(a) )
+
+  def map[B](f: A => B): Stream[B] = foldRight(empty[B])( (a,b) => Cons(() => f(a), () => b) )
+
+  def filter(f: A => Boolean): Stream[A] = foldRight (empty[A]) ( (a,b) =>
+      if (f(a)) cons(a, b)
+      else b
+    )
+
+  def append[B >: A](stream: Stream[B]): Stream[B] = 
+    foldRight(stream)( (a,b) => cons(a, b) )
+
+  def flatMap[B](f: A => Stream[B]): Stream[B] = 
+    foldRight(empty[B]) ( (a,b) => f(a).append(b) )
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
 
   def startsWith[B](s: Stream[B]): Boolean = ???
+
 }
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
@@ -52,4 +89,10 @@ object Stream {
   def from(n: Int): Stream[Int] = ???
 
   def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = ???
+
+  def main(args: Array[String]): Unit = {
+    val s = Stream(1,2,3,4)
+    val r = s flatMap (x => Cons(() => x+1, () => Empty))
+    println(r.toList)
+  }
 }
